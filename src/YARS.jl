@@ -9,7 +9,6 @@ function yars_start(working_dir::String, options::Vector{ASCIIString})
   cd("$working_dir")
   st = []
   pr = []
-  #(st, pr) = readsfrom(`yars $options`)
   (st, pr) = open(`yars $options`,"r")
   s = "ABC"
   while ismatch(r"port",s) == false && length(s) > 0
@@ -19,7 +18,7 @@ function yars_start(working_dir::String, options::Vector{ASCIIString})
     println("error opening yars")
     exit(-1)
   end
-  s = split(s)
+  s    = split(s)
   port = int(s[4])
   println("opened yars on port ", port)
   cd("$current_dir")
