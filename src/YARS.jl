@@ -1,7 +1,14 @@
 module YARS
 
 export yars_start, yars_send_reset, yars_send_quit, yars_send_message
-export yars_send_motor_commands, yars_read_sensors
+export yars_send_actuator_commands, yars_read_sensors
+
+function print_yars(st)
+  while true
+    print(readline(st))
+  end
+end
+
 
 #function yars_start(working_dir::String, xml_file::String, options::Vector{ASCIIString})
 function yars_start(working_dir::String, options::Vector{ASCIIString})
@@ -25,8 +32,10 @@ function yars_start(working_dir::String, options::Vector{ASCIIString})
   sleep(1)
   hd = connect(port)
   sleep(1)
+  r = @spawn print_yars(st)
   return hd
 end
+start(working_dir::String, options::Vector{ASCIIString}) = yars_start(working_dir, options)
 
 
 function bytes_of_size_int(i::Int64)
@@ -49,19 +58,23 @@ function yars_send_string(hd, str::String)
            convert(Vector{Uint8}, str))
   write(hd, s)
 end
+send_string(hd, str::String) = yars_send_string(hd, str)
 
 function yars_send_reset(hd)
   yars_send_string(hd, "RESET")
 end
+reset(hd) = yars_send_reset(hd)
 
 function yars_send_quit(hd)
   yars_send_string(hd, "QUIT")
 end
+quit(hd) = yars_send_quit(hd)
 
 function yars_send_message(hd, str)
   yars_send_string(hd, "MESSAGE")
   yars_send_string(hd, str)
 end
+send_message(hd) = yars_send_message(hd, str)
 
 function yars_read_sensors(hd)
   s = []
@@ -78,8 +91,9 @@ function yars_read_sensors(hd)
   end
   data
 end
+sensors(hd) = yars_read_sensors(hd)
 
-function yars_send_motor_commands(hd, mv::Vector{Float64})
+function yars_send_actuator_commands(hd, mv::Vector{Float64})
   c = bytes_of_size_int(length(mv))
   s = vcat(convert(Vector{Uint8}, ['D']), convert(Vector{Uint8}, c))
   yars_send_string(hd, "ACTUATORS")
@@ -88,5 +102,6 @@ function yars_send_motor_commands(hd, mv::Vector{Float64})
     write(hd, f)
   end
 end
+actuators(hd, mv) = yars_send_actuator_commands(hd, mv)
 
 end # module
