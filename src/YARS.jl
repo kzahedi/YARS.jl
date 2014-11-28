@@ -74,7 +74,7 @@ function yars_send_message(hd, str)
   yars_send_string(hd, "MESSAGE")
   yars_send_string(hd, str)
 end
-send_message(hd) = yars_send_message(hd, str)
+message(hd, str) = yars_send_message(hd, str)
 
 function yars_read_sensors(hd)
   s = []
