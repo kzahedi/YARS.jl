@@ -26,7 +26,7 @@ function yars_start(working_dir::String, options::Vector{ASCIIString})
     exit(-1)
   end
   s    = split(s)
-  port = int(s[4])
+  port = int(s[end])
   cd("$current_dir")
   sleep(1)
   hd = connect(port)
