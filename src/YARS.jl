@@ -2,6 +2,7 @@ module YARS
 
 export yars_start, yars_send_reset, yars_send_quit, yars_send_message
 export yars_send_actuator_commands, yars_read_sensors
+export yars_read_float, yars_send_float, yars_read_string, yars_send_string
 
 function print_yars(st)
   while true
@@ -102,5 +103,116 @@ function yars_send_actuator_commands(hd, mv::Vector{Float64})
   end
 end
 actuators(hd, mv) = yars_send_actuator_commands(hd, mv)
+
+function yars_read_string(hd)
+  s = readbytes(hd, 1)
+  s = convert(Char, s[1])
+  if s != 's'
+    println("expected 's' but received '", s, "'")
+  end
+  nr = read(hd,Int32)
+  r = ""
+  for i = 1:nr
+    r = string(r, read(hd, Char))
+  end
+  return r
+end
+read_string(hd) = yars_read_string(hd)
+
+type Entity
+  name::String
+  dimension::Int64
+  internal::Vector{(Float64, Float64)}
+  external::Vector{(Float64, Float64)}
+end
+
+type Robot
+  sensors::Vector{Entity}
+  actuators::Vector{Entity}
+  sensor_dim::Int64
+  actuator_dim::Int64
+end
+
+#= function parse_configuration_strings(strings::Array{Union(ASCIIString,UTF8String),1}) =#
+function parse_configuration_strings(strings::Array{ASCIIString,1})
+
+  sensors   = []
+  actuators = []
+
+  current   = nothing
+
+  for str in strings
+    if contains(str, "BEGIN SENSOR") || contains(str, "BEGIN ACTUATOR")
+      current = Entity("", 0, [(0.0, 0.0)], [(0.0, 0.0)])
+    end
+
+    if contains(str, "END SENSOR")
+      sensors = [sensors, current]
+      current = nothing
+    end
+
+    if contains(str, "END ACTUATOR")
+      actuators = [actuators, current]
+      current   = nothing
+    end
+
+    if contains(str,"NAME") && current != nothing
+      current.name = strip(str[5:end])
+    end
+
+    if contains(str,"DIMENSION") && current != nothing
+      values            = split(str)
+      current.dimension = int64(values[2])
+    end
+
+    if contains(str,"INTERNAL DOMAIN")
+      values           = split(str)
+      v1               = float(values[end-1])
+      v2               = float(values[end])
+      current.internal = [current.internal, (v1, v2)]
+    end
+
+    if contains(str,"EXTERNAL DOMAIN")
+      values           = split(str)
+      v1               = float(values[end-1])
+      v2               = float(values[end])
+      current.external = [current.external, (v1, v2)]
+    end
+  end
+
+  s = 0
+  for sen in sensors
+    s = s + sen.dimension
+  end
+
+  a = 0
+  for act in actuators
+    a = a + act.dimension
+  end
+
+  return Robot(sensors, actuators, s, a)
+end
+
+function yars_get_configuration(hd)
+  configuration_strings = []
+  yars_send_string(hd, "CONFIGURATION")
+  s = ""
+  while s != "END CONFIGURATION"
+    s = yars_read_string(hd)
+    configuration_strings = [configuration_strings, s]
+  end
+  return parse_configuration_strings(configuration_strings)
+end
+configuration(hd) = yars_get_configuration(hd)
+
+function yars_send_float(hd, value::Float64)
+  write(hd, value)
+end
+send_float(hd, value) = yars_send_float(hd, value)
+
+function yars_read_float(hd)
+  read(hd, Float64)
+end
+read_float(hd) = yars_read_float(hd)
 
 end # module
