@@ -2,7 +2,13 @@ module YARS
 
 export yars_start, yars_send_reset, yars_send_quit, yars_send_message
 export yars_send_actuator_commands, yars_read_sensors
-export yars_read_float, yars_send_float, yars_read_string, yars_send_string
+
+export yars_read_float,  yars_send_float
+export yars_read_string, yars_send_string
+export yars_read_int,    yars_send_int
+
+export yars_read_float_vector, yars_send_float_vector
+export yars_read_int_vector,   yars_send_int_vector
 
 function print_yars(st)
   while true
@@ -10,8 +16,90 @@ function print_yars(st)
   end
 end
 
+###########################################################################
+#                        basic data types - float                         #
+###########################################################################
 
-#function yars_start(working_dir::String, xml_file::String, options::Vector{ASCIIString})
+function yars_send_float_vector(hd, mv::Vector{Float64})
+  c = bytes_of_size_int(length(mv))
+  s = vcat(convert(Vector{Uint8}, ['D']), convert(Vector{Uint8}, c))
+  write(hd,s)
+  for f in mv
+    write(hd, f)
+  end
+end
+send_float_vector(hd, mv) = yars_send_float_vector(hd, mv)
+
+function yars_read_float_vector(hd)
+  s = []
+  s = readbytes(hd, 1)
+  s = convert(Char, s[1])
+  if s != 'D'
+    println("expected 'D' but received '", s, "'")
+  end
+  nr = read(hd,Int32)
+  data = zeros(nr)
+  for i=1:nr
+    data[i] = read(hd, Float64)
+  end
+  data
+end
+read_float_vector(hd) = yars_read_float_vector(hd)
+
+function yars_send_float(hd, value::Float64)
+  write(hd, value)
+end
+send_float(hd, value) = yars_send_float(hd, value)
+
+function yars_read_float(hd)
+  read(hd, Float64)
+end
+read_float(hd) = yars_read_float(hd)
+
+###########################################################################
+#                         basic data types - int                          #
+###########################################################################
+
+function yars_send_int_vector(hd, mv::Vector{Int64})
+  c = bytes_of_size_int(length(mv))
+  s = vcat(convert(Vector{Uint8}, ['D']), convert(Vector{Uint8}, c))
+  write(hd,s)
+  for f in mv
+    write(hd, f)
+  end
+end
+send_int_vector(hd, mv) = yars_send_int_vector(hd, mv)
+
+function yars_read_int_vector(hd)
+  s = []
+  s = readbytes(hd, 1)
+  s = convert(Char, s[1])
+  if s != 'D'
+    println("expected 'D' but received '", s, "'")
+  end
+  nr = read(hd,Int32)
+  data = zeros(nr)
+  for i=1:nr
+    data[i] = read(hd, Int64)
+  end
+  data
+end
+read_int_vector(hd) = yars_read_int_vector(hd)
+
+function yars_send_int(hd, value::Int64)
+  write(hd, value)
+end
+send_int(hd, value) = yars_send_int(hd, value)
+
+function yars_read_int(hd)
+  read(hd, Int64)
+end
+read_int(hd) = yars_read_int(hd)
+
+###########################################################################
+#                         communication functions                         #
+###########################################################################
+
 function yars_start(working_dir::String, options::Vector{ASCIIString})
   current_dir = pwd()
   cd("$working_dir")
@@ -37,19 +125,9 @@ function yars_start(working_dir::String, options::Vector{ASCIIString})
 end
 start(working_dir::String, options::Vector{ASCIIString}) = yars_start(working_dir, options)
 
-
 function bytes_of_size_int(i::Int64)
   [(i >> (j * 8)) & 0xFF for j=0:3]
 end
-
-#= function int_of_str(v::Vector{Uint8}) =#
-  #= o = 0 =#
-  #= for i=0:3 =#
-    #= o += (v[i+1] << (i*8)) =#
-  #= end =#
-  #= return o =#
-#= end =#
-
 
 function yars_send_string(hd, str::String)
   c = bytes_of_size_int(length(str))
@@ -77,30 +155,14 @@ end
 message(hd, str) = yars_send_message(hd, str)
 
 function yars_read_sensors(hd)
-  s = []
   yars_send_string(hd, "SENSORS")
-  s = readbytes(hd, 1)
-  s = convert(Char, s[1])
-  if s != 'D'
-    println("expected 'D' but received '", s, "'")
-  end
-  nr = read(hd,Int32)
-  data = zeros(nr)
-  for i=1:nr
-    data[i] = read(hd, Float64)
-  end
-  data
+  yars_read_float_vector(hd)
 end
 sensors(hd) = yars_read_sensors(hd)
 
 function yars_send_actuator_commands(hd, mv::Vector{Float64})
-  c = bytes_of_size_int(length(mv))
-  s = vcat(convert(Vector{Uint8}, ['D']), convert(Vector{Uint8}, c))
   yars_send_string(hd, "ACTUATORS")
-  write(hd,s)
-  for f in mv
-    write(hd, f)
-  end
+  yars_send_float_vector(hd, mv)
 end
 actuators(hd, mv) = yars_send_actuator_commands(hd, mv)
 
@@ -133,7 +195,6 @@ type Robot
   actuator_dim::Int64
 end
 
-#= function parse_configuration_strings(strings::Array{Union(ASCIIString,UTF8String),1}) =#
 function parse_configuration_strings(strings::Array{ASCIIString,1})
 
   sensors   = []
@@ -204,15 +265,5 @@ function yars_get_configuration(hd)
   return parse_configuration_strings(configuration_strings)
 end
 configuration(hd) = yars_get_configuration(hd)
-
-function yars_send_float(hd, value::Float64)
-  write(hd, value)
-end
-send_float(hd, value) = yars_send_float(hd, value)
-
-function yars_read_float(hd)
-  read(hd, Float64)
-end
-read_float(hd) = yars_read_float(hd)
 
 end # module
