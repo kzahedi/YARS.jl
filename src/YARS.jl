@@ -101,27 +101,37 @@ read_int(hd) = yars_read_int(hd)
 ###########################################################################
 
 function yars_start(working_dir::String, options::Vector{ASCIIString})
-  current_dir = pwd()
-  cd("$working_dir")
-  st = []
-  pr = []
-  (st, pr) = open(`yars $options`,"r")
-  s = "ABC"
-  while ismatch(r"port",s) == false && length(s) > 0
-    s = readline(st)
+  hd = nothing
+  pr = nothing
+  opened = false
+  while opened == false
+    try
+      current_dir = pwd()
+      cd("$working_dir")
+      st = []
+      pr = []
+      (st, pr) = open(`yars $options`,"r")
+      s = "ABC"
+      while ismatch(r"port",s) == false && length(s) > 0
+        s = readline(st)
+      end
+      if length(s) == 0
+        println("error opening yars")
+        exit(-1)
+      end
+      s    = split(s)
+      port = int(s[end])
+      cd("$current_dir")
+      sleep(1)
+      hd = connect(port)
+      sleep(1)
+      r = @spawn print_yars(st)
+      opened = true
+    catch
+      opened = false
+    end
   end
-  if length(s) == 0
-    println("error opening yars")
-    exit(-1)
-  end
-  s    = split(s)
-  port = int(s[end])
-  cd("$current_dir")
-  sleep(1)
-  hd = connect(port)
-  sleep(1)
-  r = @spawn print_yars(st)
-  return hd
+  return hd, pr
 end
 start(working_dir::String, options::Vector{ASCIIString}) = yars_start(working_dir, options)
 
